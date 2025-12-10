@@ -175,5 +175,8 @@ NEXT_PLAN: [if failed, provide new steps in NAVIGATE/CLICK/TYPE format, one per 
             elif line.startswith('TYPE:'):
                 text = line.replace('TYPE:', '').strip()
                 steps.append(('type', text))
+            elif line.startswith('SCROLL:'):
+                direction = line.replace('SCROLL:', '').strip()
+                steps.append(('scroll', direction))
         
         return steps

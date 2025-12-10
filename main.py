@@ -12,55 +12,99 @@ load_dotenv()
 # Ensure assets folder exists
 os.makedirs("assets", exist_ok=True)
 
-async def execute_step(step_type, step_data, browser, vision):
-    """Execute a single step from the plan"""
+async def execute_step(step_type, step_data, browser, vision, max_retries=3):
+    """Execute a single step from the plan with retry logic"""
     if step_type == 'navigate':
         url = step_data
         if not url.startswith('http'):
             url = f"https://www.{url}" if not url.startswith('www.') else f"https://{url}"
         print(f"🌐 Navigating to {url}...")
-        await browser.navigate(url)
-        await asyncio.sleep(2)
+        try:
+            await browser.navigate(url)
+            await asyncio.sleep(2)
+            return True
+        except Exception as e:
+            print(f"❌ Navigation failed: {e}")
+            return False
+    
+    elif step_type == 'scroll':
+        direction = step_data.lower()
+        try:
+            if direction == 'down':
+                await browser.scroll_down()
+            elif direction == 'up':
+                await browser.scroll_up()
+            elif direction == 'bottom':
+                await browser.scroll_to_bottom()
+            return True
+        except Exception as e:
+            print(f"❌ Scroll failed: {e}")
+            return False
         
     elif step_type == 'click':
         target = step_data
         print(f"🔍 Looking for: {target}")
         
-        # Take screenshot
-        image, element_map = await browser.get_som_screenshot()
-        
-        # Better prompts based on target type
-        if "search" in target.lower():
-            prompt = f"Look at this webpage. Find the MAIN SEARCH INPUT BOX (usually at the top center with placeholder text like 'Search'). Each element has a RED BOX with a WHITE NUMBER inside. What is the NUMBER of the search input box? Reply with ONLY that number, nothing else."
-        elif "quantity" in target.lower() or "increase" in target.lower():
-            prompt = f"Find the '+' or 'increase quantity' button. Each element has a red box with a number ID. Which number is the + button to increase quantity? Reply with ONLY the number."
-        elif "add to cart" in target.lower() or "add" in target.lower():
-            prompt = f"Find the 'Add to Cart' or 'Add' button. Each element has a red box with a number ID. Which number is the add to cart button? Reply with ONLY the number."
-        else:
-            prompt = f"Find the element: '{target}'. Each UI element has a red box with an ID number inside. Which ID number is '{target}'? Reply with ONLY the number."
-        
-        response = vision.analyze_screen(image, prompt)
-        print(f"🤖 Found ID: {response}")
-        
-        # Extract and click
-        match = re.search(r'\d+', response)
-        if match:
-            element_id = int(match.group())
-            if element_id in element_map:
-                print(f"⚡ Clicking ID {element_id}...")
-                await browser.click_element(element_map, element_id)
-                await asyncio.sleep(2)
+        # Try multiple times with scrolling
+        for attempt in range(max_retries):
+            if attempt > 0:
+                print(f"🔄 Retry attempt {attempt + 1}/{max_retries}")
+            
+            # Take screenshot
+            image, element_map = await browser.get_som_screenshot()
+            
+            # Better prompts based on target type
+            if "search" in target.lower():
+                prompt = f"Look at this webpage. Find the MAIN SEARCH INPUT BOX (usually at the top center with placeholder text like 'Search'). Each element has a RED BOX with a WHITE NUMBER inside. What is the NUMBER of the search input box? Reply with ONLY that number, nothing else."
+            elif "quantity" in target.lower() or "increase" in target.lower():
+                prompt = f"Find the '+' or 'increase quantity' button. Each element has a red box with a number ID. Which number is the + button to increase quantity? Reply with ONLY the number."
+            elif "add to cart" in target.lower() or "add" in target.lower():
+                prompt = f"Find the 'Add to Cart' or 'Add' button. Each element has a red box with a number ID. Which number is the add to cart button? Reply with ONLY the number."
             else:
-                print(f"❌ ID {element_id} not found in map")
-        else:
-            print("❌ Could not find element")
+                prompt = f"Find the element: '{target}'. Each UI element has a red box with an ID number inside. Which ID number is '{target}'? Reply with ONLY the number."
+            
+            response = vision.analyze_screen(image, prompt)
+            print(f"🤖 Found ID: {response}")
+            
+            # Extract and click
+            match = re.search(r'\d+', response)
+            if match:
+                element_id = int(match.group())
+                if element_id in element_map:
+                    print(f"⚡ Clicking ID {element_id}...")
+                    success = await browser.click_element(element_map, element_id)
+                    if success:
+                        await asyncio.sleep(2)
+                        return True
+                    else:
+                        print(f"⚠️ Click failed, retrying...")
+                else:
+                    print(f"❌ ID {element_id} not in map. Element might be off-screen.")
+                    if attempt < max_retries - 1:
+                        print("📜 Scrolling down to find element...")
+                        await browser.scroll_down()
+                        await asyncio.sleep(1)
+            else:
+                print("❌ Could not parse element ID from response")
+                if attempt < max_retries - 1:
+                    await browser.scroll_down()
+        
+        print(f"❌ Failed to click '{target}' after {max_retries} attempts")
+        return False
             
     elif step_type == 'type':
         text = step_data
         print(f"⌨️ Typing: {text}")
-        await browser.page.keyboard.type(text)
-        await browser.page.keyboard.press("Enter")
-        await asyncio.sleep(2)
+        try:
+            await browser.page.keyboard.type(text)
+            await browser.page.keyboard.press("Enter")
+            await asyncio.sleep(2)
+            return True
+        except Exception as e:
+            print(f"❌ Typing failed: {e}")
+            return False
+    
+    return False
 
 async def main():
     # 1. Initialize Engines (Only once!)

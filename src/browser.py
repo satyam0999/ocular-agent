@@ -114,16 +114,39 @@ class BrowserEngine:
     async def click_element(self, element_map, element_id):
         if element_id not in element_map:
             print(f"❌ Error: ID {element_id} not found in current view.")
-            return
+            return False
         
         item = element_map[element_id]
         # Click the center of the element
         click_x = item['x'] + (item['width'] / 2)
         click_y = item['y'] + (item['height'] / 2)
         
-        await self.page.mouse.click(click_x, click_y)
-        print(f"✅ Clicked element ID {element_id} at ({click_x}, {click_y})")
-        await asyncio.sleep(2) # Wait for UI to update
+        try:
+            await self.page.mouse.click(click_x, click_y)
+            print(f"✅ Clicked element ID {element_id} at ({click_x}, {click_y})")
+            await asyncio.sleep(2) # Wait for UI to update
+            return True
+        except Exception as e:
+            print(f"❌ Click failed: {e}")
+            return False
+    
+    async def scroll_down(self):
+        """Scroll down one page"""
+        await self.page.keyboard.press("PageDown")
+        await asyncio.sleep(1)
+        print("📜 Scrolled down")
+    
+    async def scroll_up(self):
+        """Scroll up one page"""
+        await self.page.keyboard.press("PageUp")
+        await asyncio.sleep(1)
+        print("📜 Scrolled up")
+    
+    async def scroll_to_bottom(self):
+        """Scroll to bottom of page"""
+        await self.page.keyboard.press("End")
+        await asyncio.sleep(1)
+        print("📜 Scrolled to bottom")
 
     async def stop(self):
         await self.browser.close()
