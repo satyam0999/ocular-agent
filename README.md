@@ -155,9 +155,6 @@ Contributions welcome! Feel free to:
 - Suggest features
 - Submit pull requests
 
-## 📄 License
-
-MIT License - see LICENSE file for details
 
 ## 🙏 Acknowledgments
 
