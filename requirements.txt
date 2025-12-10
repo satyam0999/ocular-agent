@@ -1,0 +1,10 @@
+torch>=2.4.0 --index-url https://download.pytorch.org/whl/cu121
+transformers>=4.46.0
+accelerate>=1.0.0
+bitsandbytes>=0.44.0
+playwright>=1.48.0
+pillow>=10.0.0
+numpy
+colorama
+openai>=1.0.0
+python-dotenv
